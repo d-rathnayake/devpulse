@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 300" role="img" aria-label="DevPulse banner">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#0b0f1a"/>
+      <stop offset="1" stop-color="#1c0b30"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#22d3ee"/>
+      <stop offset="1" stop-color="#a855f7"/>
+    </linearGradient>
+    <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="5" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <rect width="1200" height="300" rx="28" fill="url(#bg)"/>
+  <rect x="2" y="2" width="1196" height="296" rx="26" fill="none" stroke="url(#accent)" stroke-opacity="0.35" stroke-width="2"/>
+  <g transform="translate(150,150)" filter="url(#glow)">
+    <circle r="95" fill="none" stroke="url(#accent)" stroke-width="6" stroke-opacity="0.5"/>
+    <path d="M-75 0 H-38 L-22 -42 L2 44 L22 -16 L38 0 H75"
+          fill="none" stroke="url(#accent)" stroke-width="10"
+          stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <text x="300" y="150" font-family="Segoe UI, Helvetica, Arial, sans-serif"
+        font-size="100" font-weight="800" fill="#f8fafc">DevPulse</text>
+  <text x="304" y="200" font-family="monospace" font-size="28" fill="url(#accent)">terminal toolkit · by d-rathnayake</text>
+  <text x="304" y="246" font-family="monospace" font-size="20" fill="#64748b">◆ repo health · device info · github profile</text>
+</svg>
