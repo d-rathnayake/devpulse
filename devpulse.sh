@@ -282,6 +282,55 @@ brand_line() {
   printf "  %sdev:%s %s%s%s\n\n" "$GREY" "$RST" "$BOLD$PINK" "$OWNER" "$RST"
 }
 
+# ---------- medium banner: 3-row block letters, fits phone widths ----------
+glyph3() {
+  case "$1" in
+    D) G3=(' ___ ' "|   \\" '|___/') ;;
+    E) G3=(' ___ ' '| __|' '|___|') ;;
+    V) G3=("\\   /" ' \ / ' '  V  ') ;;
+    P) G3=(' ___ ' "| _ \\" '| __/') ;;
+    U) G3=('_   _' '| | |' "\\___/") ;;
+    L) G3=('_    ' '| |  ' '|_|__') ;;
+    S) G3=(' ___ ' '/ __|' "\\__ \\") ;;
+    1) G3=('  _ ' ' / |' ' |_|') ;;
+    *) G3=('    ' '    ' '    ') ;;
+  esac
+}
+
+# word3_rows WORD START -> fills ART[0..2] with coloured 3-row letters
+word3_rows() {
+  local word="$1" k="${2:-0}" r i col
+  local -a pal=(51 45 39 75 111 141 177 213)
+  ART=("" "" "")
+  for ((i = 0; i < ${#word}; i++)); do
+    glyph3 "${word:i:1}"
+    col=""
+    if [ -n "$RST" ]; then col=$'\e[1;38;5;'"${pal[$(( (k + i) % ${#pal[@]} ))]}"'m'; fi
+    for r in 0 1 2; do
+      ART[r]+="${col}${G3[r]} "
+    done
+  done
+}
+
+banner_mid() {
+  local pulse
+  printf "  %s.%s.%s\n" "$VIOLET" "$(rule '-~=~' $((W-2)))" "$RST"
+  frame_row ""
+  word3_rows DEV 0
+  for r in 0 1 2; do frame_row "${ART[r]}"; done
+  frame_row ""
+  word3_rows PULSE 3
+  for r in 0 1 2; do frame_row "${ART[r]}"; done
+  frame_row ""
+  word3_rows V1 7
+  for r in 0 1 2; do frame_row "${ART[r]}"; done
+  frame_row ""
+  pulse="_/\\_/\\__/\\_/\\__/\\_/\\__/\\_/\\__/\\_/\\__"
+  frame_row "${VIOLET}${pulse}"
+  frame_row "${GREY}dev:${RST} ${BOLD}${PINK}${OWNER}${RST}  ${GREY}~  repo health  ~  devices${RST}"
+  printf "  %s'%s'%s\n" "$PINK" "$(rule '-~=~' $((W-2)))" "$RST"
+}
+
 # header for sub-pages
 header() {
   refresh_layout
@@ -296,10 +345,10 @@ home_header() {
   printf "\n"
   if [ "$BIG" -eq 1 ]; then
     banner_frame
-    printf "\n"
   else
-    brand_line
+    banner_mid
   fi
+  printf "\n"
 }
 
 # ---------- GitHub data ----------
