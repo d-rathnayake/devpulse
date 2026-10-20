@@ -30,9 +30,11 @@ if [ ${#need[@]} -eq 0 ]; then
 else
   printf "\n"
   if command -v pkg >/dev/null 2>&1; then
-    step "Installing: ${need[*]}"; pkg install -y "${need[@]}" >/dev/null 2>&1 && done_ok || done_warn "install manually"
+    step "Installing: ${need[*]}"
+    if pkg install -y "${need[@]}" >/dev/null 2>&1; then done_ok; else done_warn "install manually"; fi
   elif command -v apt-get >/dev/null 2>&1; then
-    step "Installing: ${need[*]}"; sudo apt-get install -y "${need[@]}" >/dev/null 2>&1 && done_ok || done_warn "install manually"
+    step "Installing: ${need[*]}"
+    if sudo apt-get install -y "${need[@]}" >/dev/null 2>&1; then done_ok; else done_warn "install manually"; fi
   else
     done_warn "missing: ${need[*]}"
   fi

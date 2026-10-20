@@ -8,10 +8,10 @@ API="https://api.github.com"
 PROFILE_URL="https://github.com/$OWNER"
 
 if [ -t 1 ]; then
-  HI=$'\033[1;36m'; OK=$'\033[1;32m'; WARN=$'\033[1;33m'; ERR=$'\033[1;31m'
+  HI=$'\033[1;36m'; OK=$'\033[1;32m'; ERR=$'\033[1;31m'
   DIM=$'\033[2m'; KEY=$'\033[1;35m'; OFF=$'\033[0m'
 else
-  HI=""; OK=""; WARN=""; ERR=""; DIM=""; KEY=""; OFF=""
+  HI=""; OK=""; ERR=""; DIM=""; KEY=""; OFF=""
 fi
 
 COLS=$(tput cols 2>/dev/null || echo 80)
