@@ -12,7 +12,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/shell-bash-1f425f?logo=gnubash&logoColor=white" alt="bash"/>
   <img src="https://img.shields.io/badge/platform-Termux%20%7C%20Linux-22d3ee" alt="platform"/>
-  <img src="https://img.shields.io/badge/version-1.2.0-a855f7" alt="version"/>
+  <img src="https://img.shields.io/badge/version-V1-a855f7" alt="version"/>
   <img src="https://img.shields.io/badge/license-All%20Rights%20Reserved-ef4444" alt="license"/>
 </p>
 

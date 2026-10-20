@@ -24,7 +24,7 @@
 
   <text x="70" y="112" font-family="Consolas, Menlo, monospace" font-size="72" font-weight="700" fill="#e2e8f0" letter-spacing="8">DEVPULSE</text>
   <text x="72" y="154" font-family="Consolas, Menlo, monospace" font-size="24" fill="url(#ac)">repo health / device report / github profile</text>
-  <text x="72" y="190" font-family="Consolas, Menlo, monospace" font-size="18" fill="#64748b">version 1.1.0 - built for Termux - by d-rathnayake</text>
+  <text x="72" y="190" font-family="Consolas, Menlo, monospace" font-size="18" fill="#64748b">V1 - built for Termux - by d-rathnayake</text>
 
   <g filter="url(#glow)">
     <path d="M70 250 H380 L400 214 L420 286 L440 232 L460 250 H700 L720 204 L742 292 L764 240 L784 250 H1130"

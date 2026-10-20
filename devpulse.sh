@@ -2,7 +2,7 @@
 # DevPulse - terminal toolkit for Termux and Linux - by d-rathnayake
 set -u
 
-VERSION="1.2.0"
+VERSION="V1"
 OWNER="d-rathnayake"
 API="https://api.github.com"
 PROFILE_URL="https://github.com/$OWNER"
@@ -19,13 +19,24 @@ else
   GREY=""; WHITE=""; BG_V=""; BG_C=""; BG_G=""
 fi
 
-# ---------- layout: adapts to the phone width ----------
-COLS=$(tput cols 2>/dev/null || echo 80)
-W=$(( COLS - 2 ))
-if [ "$W" -gt 68 ]; then W=68; fi
-if [ "$W" -lt 28 ]; then W=28; fi
-NARROW=0
-if [ "$W" -lt 50 ]; then NARROW=1; fi
+# ---------- layout: measured from the terminal on every draw (auto-scales) ----------
+refresh_layout() {
+  local size r c
+  size=$(stty size 2>/dev/null) || size=""
+  read -r r c <<<"$size" || true
+  if [ -z "${c:-}" ]; then c=$(tput cols 2>/dev/null) || c=""; fi
+  if [ -z "${c:-}" ]; then c=50; fi
+  ROWS=${r:-24}
+  COLS=$c
+  W=$(( COLS - 2 ))
+  if [ "$W" -gt 68 ]; then W=68; fi
+  if [ "$W" -lt 28 ]; then W=28; fi
+  NARROW=0
+  if [ "$W" -lt 50 ]; then NARROW=1; fi
+  BIG=0
+  if [ "$COLS" -ge 52 ] && [ "$ROWS" -ge 24 ]; then BIG=1; fi
+}
+refresh_layout
 
 # ---------- GitHub token: use the gh login when no token is set ----------
 if [ -z "${GITHUB_TOKEN:-}" ] && command -v gh >/dev/null 2>&1; then
@@ -55,6 +66,10 @@ fmt() {
   n=$(tr -cd '0-9' <<<"${1:-}")
   if [ -z "$n" ]; then echo "-"; return; fi
   sed ':a;s/\B[0-9]\{3\}\>/,&/;ta' <<<"$n"
+}
+
+plural() {
+  if [ "$1" = "1" ]; then echo "$2"; else echo "$3"; fi
 }
 
 badge() {
@@ -128,47 +143,50 @@ fail() { printf "  %s!!%s %s\n" "$RED" "$RST" "$1"; }
 pause() { printf "\n  %sPress Enter to go back%s " "$DIM" "$RST"; read -r _ || true; }
 clr() { clear 2>/dev/null || printf '\e[2J\e[H'; }
 
-# ---------- big banner (block letters, colour gradient) ----------
-big_word() {
-  local word="$1" r i ch col k=0
-  local -a rows=("" "" "")
-  local -a pal=(51 45 39 33 99 135 171 213)
-  local -a g
+# ---------- banner: block letters with a colour gradient ----------
+glyph() {
+  case "$1" in
+    D) GLYPH=('██████╗ ' '██╔══██╗' '██║  ██║' '██║  ██║' '██████╔╝' '╚═════╝ ') ;;
+    E) GLYPH=('███████╗' '██╔════╝' '█████╗  ' '██╔══╝  ' '███████╗' '╚══════╝') ;;
+    V) GLYPH=('██╗   ██╗' '██║   ██║' '██║   ██║' '╚██╗ ██╔╝' ' ╚████╔╝ ' '  ╚═══╝  ') ;;
+    P) GLYPH=('██████╗ ' '██╔══██╗' '██████╔╝' '██╔═══╝ ' '██║     ' '╚═╝     ') ;;
+    U) GLYPH=('██╗   ██╗' '██║   ██║' '██║   ██║' '██║   ██║' '╚██████╔╝' ' ╚═════╝ ') ;;
+    L) GLYPH=('██╗     ' '██║     ' '██║     ' '██║     ' '███████╗' '╚══════╝') ;;
+    S) GLYPH=('███████╗' '██╔════╝' '███████╗' '╚════██║' '███████║' '╚══════╝') ;;
+    *) GLYPH=('        ' '        ' '        ' '        ' '        ' '        ') ;;
+  esac
+}
+
+word_art() {
+  local word="$1" r i col k=0
+  local -a pal=(51 45 39 75 111 141 177 213)
+  local -a rows=("" "" "" "" "" "")
   for ((i = 0; i < ${#word}; i++)); do
-    ch="${word:i:1}"
-    case "$ch" in
-      D) g=(' ___ ' '|   \' '|___/') ;;
-      E) g=(' ___ ' '| __|' '|___|') ;;
-      V) g=('\   /' ' \ / ' '  V  ') ;;
-      P) g=(' ___ ' '| _ \' '| __/') ;;
-      U) g=('_   _' '| | |' '\___/') ;;
-      L) g=('_    ' '| |  ' '|_|__') ;;
-      S) g=(' ___ ' '/ __|' '\__ \') ;;
-      *) g=('     ' '     ' '     ') ;;
-    esac
+    glyph "${word:i:1}"
     col=""
     if [ -n "$RST" ]; then col=$'\e[1;38;5;'"${pal[$(( k % ${#pal[@]} ))]}"'m'; fi
-    for r in 0 1 2; do
-      rows[r]+="${col}${g[r]} "
+    for r in 0 1 2 3 4 5; do
+      rows[r]+="${col}${GLYPH[r]} "
     done
     k=$(( k + 1 ))
   done
-  for r in 0 1 2; do
+  for r in 0 1 2 3 4 5; do
     printf "  %s%s\n" "${rows[r]}" "$RST"
   done
 }
 
 header() {
+  refresh_layout
   clr
   printf "\n"
-  if [ "$NARROW" -eq 1 ]; then
-    big_word DEV
-    big_word PULSE
+  if [ "$BIG" -eq 1 ]; then
+    word_art DEV
+    word_art PULSE
   else
-    big_word DEVPULSE
+    printf "  %s%sDEV%s%s%sPULSE%s\n" "$BOLD" "$CYAN" "$RST" "$BOLD" "$PINK" "$RST"
   fi
-  printf "  %s_/\\_/\\__/\\_/\\__/\\_/\\__/\\_/\\__/\\_%s\n" "$VIOLET" "$RST"
-  printf "  %sversion %s   %sdev:%s %s%s%s\n\n" "$GREY" "$VERSION" "$GREY" "$RST" "$BOLD$PINK" "$OWNER" "$RST"
+  printf "  %s_/\\_/\\__/\\_/\\__/\\_/\\__/\\_/\\__/\\_/\\__/\\_%s\n" "$VIOLET" "$RST"
+  printf "  %s%sV1%s  %s|%s  %sdev:%s %s%s%s\n\n" "$BOLD" "$WHITE" "$RST" "$GREY" "$RST" "$GREY" "$RST" "$BOLD$PINK" "$OWNER" "$RST"
 }
 
 # ---------- GitHub data ----------
@@ -204,7 +222,7 @@ top_repos_body() {
   top1=$(head -n1 <<<"$pairs" | cut -f1)
   while IFS=$'\t' read -r s n; do
     frow "${BOLD}$(trunc "$n" $((W-8)))${RST}"
-    frow "  $(bar "$s" "$top1" $((W-22)) "$CYAN")  $(fmt "$s") stars"
+    frow "  $(bar "$s" "$top1" $((W-22)) "$CYAN")  $(fmt "$s") $(plural "$s" star stars)"
   done <<<"$pairs"
 }
 
@@ -221,7 +239,7 @@ cmd_profile() {
   frow "${PINK}@${login}${RST}"
   if [ -n "$bio" ] && [ "$bio" != "null" ]; then frow "${GREY}$(trunc "$bio" $((W-6)))${RST}"; fi
   hline
-  frow "$(badge "$BG_V" "$(fmt "$repos") repos") $(badge "$BG_C" "$(fmt "$followers") followers") $(badge "$BG_G" "$(fmt "$following") following")"
+  frow "$(badge "$BG_V" "$(fmt "$repos") repos") $(badge "$BG_C" "$(fmt "$followers") $(plural "$followers" follower followers)") $(badge "$BG_G" "$(fmt "$following") $(plural "$following" following following)")"
   hline
   kv "Joined" "${created:--}"
   kv "Profile" "$PROFILE_URL"
