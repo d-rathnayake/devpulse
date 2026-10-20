@@ -209,6 +209,7 @@ glyph() {
     L) GLYPH=('██╗     ' '██║     ' '██║     ' '██║     ' '███████╗' '╚══════╝') ;;
     S) GLYPH=('███████╗' '██╔════╝' '███████╗' '╚════██║' '███████║' '╚══════╝') ;;
     1) GLYPH=(' ██╗ ' '███║ ' '╚██║ ' ' ██║ ' ' ██║ ' ' ╚═╝ ') ;;
+    ' ') GLYPH=('   ' '   ' '   ' '   ' '   ' '   ') ;;
     *) GLYPH=('        ' '        ' '        ' '        ' '        ' '        ') ;;
   esac
 }
@@ -313,7 +314,6 @@ word3_rows() {
 }
 
 banner_mid() {
-  local pulse
   printf "  %s.%s.%s\n" "$VIOLET" "$(rule '-~=~' $((W-2)))" "$RST"
   frame_row ""
   word3_rows DEV 0
@@ -322,12 +322,7 @@ banner_mid() {
   word3_rows PULSE 3
   for r in 0 1 2; do frame_row "${ART[r]}"; done
   frame_row ""
-  word3_rows V1 7
-  for r in 0 1 2; do frame_row "${ART[r]}"; done
-  frame_row ""
-  pulse="_/\\_/\\__/\\_/\\__/\\_/\\__/\\_/\\__/\\_/\\__"
-  frame_row "${VIOLET}${pulse}"
-  frame_row "${GREY}dev:${RST} ${BOLD}${PINK}${OWNER}${RST}  ${GREY}~  repo health  ~  devices${RST}"
+  frame_row "${BOLD}${WHITE}V1${RST}  ${GREY}dev:${RST} ${BOLD}${PINK}${OWNER}${RST}"
   printf "  %s'%s'%s\n" "$PINK" "$(rule '-~=~' $((W-2)))" "$RST"
 }
 
@@ -339,11 +334,32 @@ header() {
 }
 
 # home screen: the full framed banner on large screens
+# ---------- wide banner: one horizontal line of block letters ----------
+banner_wide() {
+  word_rows "DEVPULSE V1" 0
+  printf "  %s.%s.%s\n" "$VIOLET" "$(rule '-~=~' $((W-2)))" "$RST"
+  frame_row ""
+  for r in 0 1 2 3 4 5; do frame_row "${ART[r]}"; done
+  frame_row ""
+  frame_row "${GREY}dev:${RST} ${BOLD}${PINK}${OWNER}${RST}  ${GREY}|  repo health  |  device report  |  github profile${RST}"
+  printf "  %s'%s'%s\n" "$PINK" "$(rule '-~=~' $((W-2)))" "$RST"
+}
+
+# wide_fits -> succeeds when the full wordmark fits the screen width
+wide_fits() {
+  word_rows "DEVPULSE V1" 0
+  local aw
+  aw=$(vlen "${ART[0]}")
+  [ "$(( W - 2 ))" -ge "$aw" ]
+}
+
 home_header() {
   refresh_layout
   clr
   printf "\n"
-  if [ "$BIG" -eq 1 ]; then
+  if wide_fits; then
+    banner_wide
+  elif [ "$BIG" -eq 1 ]; then
     banner_frame
   else
     banner_mid
