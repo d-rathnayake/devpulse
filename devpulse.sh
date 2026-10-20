@@ -99,7 +99,7 @@ load_col() {
 
 # ---------- box drawing (fits the phone width) ----------
 hline() {
-  printf "  %s╠%s╣%s\n" "$VIOLET" "$(rep $((W-2)) '═')" "$RST"
+  printf "  %s+%s+%s\n" "$VIOLET" "$(rule '=~-~' $((W-2)))" "$RST"
 }
 
 frow() {
@@ -107,11 +107,11 @@ frow() {
   vl=$(vlen "$t")
   pad=$(( W - 4 - vl ))
   if [ "$pad" -lt 0 ]; then pad=0; fi
-  printf "  %s║%s %s%*s %s║%s\n" "$VIOLET" "$RST" "$t" "$pad" "" "$VIOLET" "$RST"
+  printf "  %s|%s %s%*s %s|%s\n" "$VIOLET" "$RST" "$t" "$pad" "" "$VIOLET" "$RST"
 }
 
 bottom() {
-  printf "  %s╚%s╝%s\n" "$VIOLET" "$(rep $((W-2)) '═')" "$RST"
+  printf "  %s'%s'%s\n" "$VIOLET" "$(rule '-~=~' $((W-2)))" "$RST"
 }
 
 # section TITLE -> double-line title box with an icon, sized to the screen
@@ -132,9 +132,9 @@ section() {
   if [ "$pad" -lt 0 ]; then pad=0; fi
   left=$(( pad / 2 ))
   right=$(( pad - left ))
-  printf "  %s╔%s╗%s\n" "$VIOLET" "$(rep "$inner" '═')" "$RST"
-  printf "  %s║%s%*s%s%s%s%s%*s%s║%s\n" "$VIOLET" "$RST" "$left" "" "$BOLD" "$CYAN" "$label" "$RST" "$right" "" "$VIOLET" "$RST"
-  printf "  %s╠%s╣%s\n" "$VIOLET" "$(rep "$inner" '═')" "$RST"
+  printf "  %s.%s.%s\n" "$VIOLET" "$(rule '-~=~' "$inner")" "$RST"
+  printf "  %s|%s%*s%s%s%s%s%*s%s|%s\n" "$VIOLET" "$RST" "$left" "" "$BOLD" "$CYAN" "$label" "$RST" "$right" "" "$VIOLET" "$RST"
+  printf "  %s+%s+%s\n" "$VIOLET" "$(rule '=~-~' "$inner")" "$RST"
 }
 
 menu_item() {
@@ -204,6 +204,13 @@ glyph() {
   esac
 }
 
+# rule PATTERN WIDTH -> an ASCII line pattern cut to exactly WIDTH characters
+rule() {
+  local pat="$1" n="$2" out=""
+  while [ "${#out}" -lt "$n" ]; do out+="$pat"; done
+  printf "%s" "${out:0:$n}"
+}
+
 # rep N CHAR -> prints CHAR N times
 rep() {
   local n="$1" ch="$2" out="" i
@@ -234,13 +241,15 @@ frame_row() {
   if [ "$pad" -lt 0 ]; then pad=0; fi
   left=$(( pad / 2 ))
   right=$(( pad - left ))
-  printf "  %s║%s%*s%s%*s%s║%s\n" "$VIOLET" "$RST" "$left" "" "$t$RST" "$right" "" "$VIOLET" "$RST"
+  printf "  %s|%s%*s%s%*s%s|%s\n" "$VIOLET" "$RST" "$left" "" "$t$RST" "$right" "" "$VIOLET" "$RST"
 }
 
 banner_frame() {
-  local pulse
-  printf "  %s╔%s╗%s\n" "$VIOLET" "$(rep 50 '═')" "$RST"
+  local pulse deco
+  deco=$(rule '*-~' 40)
+  printf "  %s.%s.%s\n" "$VIOLET" "$(rule '-~=~' 50)" "$RST"
   frame_row ""
+  frame_row "${GREY}${deco}"
   word_rows DEV 0
   for r in 0 1 2 3 4 5; do frame_row "${ART[r]}"; done
   frame_row ""
@@ -249,15 +258,16 @@ banner_frame() {
   frame_row ""
   pulse="_/\\_/\\__/\\_/\\__/\\_/\\__/\\_/\\__/\\_/\\__"
   frame_row "${VIOLET}${pulse}"
-  frame_row "${BOLD}${WHITE}V1${RST}  ${GREY}|${RST}  ${GREY}dev:${RST} ${BOLD}${PINK}${OWNER}"
+  frame_row "${BOLD}${WHITE}V1${RST}  ${GREY}~${RST}  ${GREY}dev:${RST} ${BOLD}${PINK}${OWNER}"
   frame_row "${GREY}[ repo health * devices * profile ]${RST}"
-  printf "  %s╚%s╝%s\n" "$VIOLET" "$(rep 50 '═')" "$RST"
+  frame_row "${GREY}${deco}"
+  printf "  %s'%s'%s\n" "$PINK" "$(rule '-~=~' 50)" "$RST"
 }
 
 # compact one-line brand for small screens and sub-pages
 brand_line() {
   printf "\n  %s%sDEV%s%s%sPULSE%s  %s%sV1%s\n" "$BOLD" "$CYAN" "$RST" "$BOLD" "$PINK" "$RST" "$BOLD" "$WHITE" "$RST"
-  printf "  %s%s%s\n" "$VIOLET" "$(rep $((W-2)) '=')" "$RST"
+  printf "  %s%s%s\n" "$VIOLET" "$(rule '~=-' $((W-2)))" "$RST"
   printf "  %sdev:%s %s%s%s\n\n" "$GREY" "$RST" "$BOLD$PINK" "$OWNER" "$RST"
 }
 
