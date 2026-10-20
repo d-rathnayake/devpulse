@@ -8,36 +8,39 @@ TOTAL=4
 STEP=0
 
 if [ -t 1 ]; then
-  HI=$'\033[1;36m'; OK=$'\033[1;32m'; WARN=$'\033[1;33m'; DIM=$'\033[2m'; OFF=$'\033[0m'
+  CYAN=$'\e[1;38;5;51m'; PINK=$'\e[1;38;5;213m'; GREEN=$'\e[1;38;5;84m'
+  AMBER=$'\e[1;38;5;220m'; GREY=$'\e[38;5;245m'; RST=$'\e[0m'
 else
-  HI=""; OK=""; WARN=""; DIM=""; OFF=""
+  CYAN=""; PINK=""; GREEN=""; AMBER=""; GREY=""; RST=""
 fi
 
-step() { STEP=$((STEP+1)); printf "  %s[%d/%d]%s %s" "$HI" "$STEP" "$TOTAL" "$OFF" "$1"; }
-done_ok() { printf " %s[ OK ]%s\n" "$OK" "$OFF"; }
-done_warn() { printf " %s[WARN]%s %s\n" "$WARN" "$OFF" "$1"; }
+step() {
+  STEP=$((STEP + 1))
+  printf "  %s[%d/%d]%s %s " "$CYAN" "$STEP" "$TOTAL" "$RST" "$1"
+}
+done_ok() { printf "%s[ OK ]%s\n" "$GREEN" "$RST"; }
+done_warn() { printf "%s[WARN]%s %s\n" "$AMBER" "$RST" "$1"; }
 
-printf "\n  %sDEVPULSE INSTALLER%s  v1.1.0\n" "$HI" "$OFF"
-printf "  %s------------------------------------------------%s\n\n" "$DIM" "$OFF"
+printf "\n  %sDEVPULSE%s  %sinstaller  |  dev: d-rathnayake%s\n" "$CYAN" "$RST" "$GREY" "$RST"
+printf "  %s--------------------------------------%s\n\n" "$GREY" "$RST"
 
-step "Checking required tools (git, curl)"
+step "Checking tools (git, curl)"
 need=()
 for dep in git curl; do
   if ! command -v "$dep" >/dev/null 2>&1; then need+=("$dep"); fi
 done
 if [ ${#need[@]} -eq 0 ]; then
   done_ok
-else
+elif command -v pkg >/dev/null 2>&1; then
   printf "\n"
-  if command -v pkg >/dev/null 2>&1; then
-    step "Installing: ${need[*]}"
-    if pkg install -y "${need[@]}" >/dev/null 2>&1; then done_ok; else done_warn "install manually"; fi
-  elif command -v apt-get >/dev/null 2>&1; then
-    step "Installing: ${need[*]}"
-    if sudo apt-get install -y "${need[@]}" >/dev/null 2>&1; then done_ok; else done_warn "install manually"; fi
-  else
-    done_warn "missing: ${need[*]}"
-  fi
+  step "Installing ${need[*]}"
+  if pkg install -y "${need[@]}" >/dev/null 2>&1; then done_ok; else done_warn "run: pkg install ${need[*]}"; fi
+elif command -v apt-get >/dev/null 2>&1; then
+  printf "\n"
+  step "Installing ${need[*]}"
+  if sudo apt-get install -y "${need[@]}" >/dev/null 2>&1; then done_ok; else done_warn "run: sudo apt-get install ${need[*]}"; fi
+else
+  done_warn "missing: ${need[*]}"
 fi
 
 step "Linking the devpulse command"
@@ -46,12 +49,12 @@ chmod +x "$ROOT/devpulse.sh"
 ln -sf "$ROOT/devpulse.sh" "$BIN/devpulse"
 done_ok
 
-step "Verifying the install"
-if "$ROOT/devpulse.sh" --version >/dev/null 2>&1; then done_ok; else done_warn "run: bash $ROOT/devpulse.sh"; fi
+step "Verifying"
+if "$ROOT/devpulse.sh" --version >/dev/null 2>&1; then done_ok; else done_warn "try: bash $ROOT/devpulse.sh"; fi
 
-printf "\n  %sSetup complete.%s Run it with:  devpulse\n" "$OK" "$OFF"
+printf "\n  %sReady.%s Start the tool with:  %sdevpulse%s\n" "$GREEN" "$RST" "$PINK" "$RST"
 case ":$PATH:" in
   *":$BIN:"*) ;;
-  *) printf "  %sAdd this to ~/.bashrc:%s  export PATH=\"%s:\$PATH\"\n" "$WARN" "$OFF" "$BIN" ;;
+  *) printf "  %sAdd to ~/.bashrc:%s export PATH=\"%s:\$PATH\"\n" "$AMBER" "$RST" "$BIN" ;;
 esac
 printf "\n"

@@ -1,41 +1,53 @@
-# DevPulse
+<p align="center">
+  <img src="assets/banner.svg" alt="DevPulse banner" width="100%"/>
+</p>
 
-DevPulse is a terminal toolkit for Termux and Linux. It shows your GitHub profile, scans any repository for health, lists recent commits, and prints a device report, all from one menu.
+<h1 align="center">DevPulse</h1>
 
-![DevPulse banner](assets/banner.svg)
+<p align="center">
+  <b>Repo health, GitHub insights and device reports, right in your terminal.</b><br/>
+  Built for Termux. Works on Linux too.
+</p>
 
-## Features
+<p align="center">
+  <img src="https://img.shields.io/badge/shell-bash-1f425f?logo=gnubash&logoColor=white" alt="bash"/>
+  <img src="https://img.shields.io/badge/platform-Termux%20%7C%20Linux-22d3ee" alt="platform"/>
+  <img src="https://img.shields.io/badge/version-1.2.0-a855f7" alt="version"/>
+  <img src="https://img.shields.io/badge/license-All%20Rights%20Reserved-ef4444" alt="license"/>
+</p>
 
-| Feature | What it shows |
-|---|---|
-| Developer profile | Name, bio, public repos, followers, and your top repositories with star bars |
-| Repository health scan | Health score out of 100, stars, forks, issues, license, and PASS/WARN checks |
-| Top repositories | Your repositories ranked by stars, with proportional bars |
-| Recent commits | The latest commit messages of any public repository |
-| Device report | Kernel, architecture, CPU cores, RAM and storage usage, battery (with Termux:API) |
-| Profile link | The GitHub profile URL |
+---
 
-## Health score
+## ✨ Why DevPulse?
 
-The score is out of 100 and every point is explained:
+📱 Designed for phones first. The layout adapts to your screen width.
+🎨 Clean colour borders, gradient banner, and numbers you can read at a glance.
+⚡ One menu, no setup beyond a single install command.
 
-| Check | Points |
-|---|---|
-| Pushed within 30 days (20 to 180 days gives partial points) | 40 |
-| Not archived | 20 |
-| Open issues: 10 or fewer (50 or fewer and 200 or fewer give partial points) | 20 |
-| Has a description | 10 |
-| Has a license | 10 |
+## 🚀 Features
 
-## Requirements
+🔍 **Repository health scan**: a score out of 100, grade A to D, and PASS or WARN checks.
+👤 **Developer profile**: name, bio, follower counts, and your top repositories with star bars.
+⭐ **Top repositories**: your projects ranked by stars.
+📝 **Recent commits**: the latest commit messages of any public repository.
+📱 **Device report**: kernel, CPU cores, RAM and storage usage, battery status.
+🔗 **Profile link**: your GitHub profile, one tap away.
 
-- Termux (or any Linux shell) with `bash`, `curl`, `git`, `grep`, `sed`, `awk`
-- Internet access
-- Optional: GitHub CLI (`gh`) for a higher API rate limit, and Termux:API for battery data
+## 📊 Health score
 
-## Install on Termux
+Every point is explained, so you always know why a repository scored what it did.
 
-Run these commands one at a time.
+🕒 **Freshness (40 points)**: pushed within 30 days earns full points.
+🛡️ **Activity (20 points)**: the repository is not archived.
+🐞 **Issues (20 points)**: 10 or fewer open issues earns full points.
+📜 **License (10 points)**: a license file is present.
+📘 **Docs (10 points)**: the repository has a description.
+
+Grades: A is 80 and above, B is 65 and above, C is 50 and above, and D is below 50.
+
+## 📦 Install on Termux
+
+Run these commands one at a time:
 
 ```bash
 pkg update -y
@@ -57,21 +69,15 @@ cd devpulse
 bash install.sh
 ```
 
-After installation, start the tool from anywhere:
+Start the tool from anywhere:
 
 ```bash
 devpulse
 ```
 
-Show the version:
+## 🔐 Connect GitHub (recommended)
 
-```bash
-devpulse --version
-```
-
-## Authentication (recommended)
-
-Without a token GitHub allows about 60 API requests per hour. Log in once with the GitHub CLI and DevPulse will use that token automatically:
+Without a login, GitHub allows about 60 requests per hour. Log in once and DevPulse uses your login automatically:
 
 ```bash
 pkg install -y gh
@@ -81,43 +87,36 @@ pkg install -y gh
 gh auth login
 ```
 
-## Usage
+## 🧭 Menu
 
-| Key | Action |
-|---|---|
-| 1 | Developer profile overview |
-| 2 | Repository health scan (enter owner/name) |
-| 3 | Top repositories |
-| 4 | Recent commits (enter owner/name) |
-| 5 | Device report |
-| 6 | Profile link |
-| 0 | Exit |
+🔢 **1**: Developer profile
+🔢 **2**: Repository health scan
+🔢 **3**: Top repositories
+🔢 **4**: Recent commits
+🔢 **5**: Device report
+🔢 **6**: Profile link
+🔢 **0**: Exit
 
-## Project layout
+## 🛠️ Troubleshooting
 
-```
-devpulse/
-  devpulse.sh          main program and menu
-  install.sh           installer and command link
-  assets/banner.svg    banner
-  .github/workflows/   CI: syntax check and shellcheck
-  LICENSE
-  README.md
+❓ **Command not found**: add the install folder to your PATH, then open a new session:
+
+```bash
+export PATH="$HOME/.local/bin:$PATH"
 ```
 
-## Troubleshooting
+⏳ **Rate limit or GitHub error**: run `gh auth login` and try again.
 
-- `devpulse: command not found`: add the install folder to your PATH, then open a new session:
+🔋 **Battery shows unknown**: install the Termux:API app, then run `pkg install -y termux-api`.
 
-  ```bash
-  export PATH="$HOME/.local/bin:$PATH"
-  ```
+## 👨‍💻 Developer
 
-- `GitHub API error` or rate limit: run `gh auth login`, then try again.
-- Battery shows as unknown: install Termux:API and the `termux-api` package.
+**d-rathnayake**: [github.com/d-rathnayake](https://github.com/d-rathnayake)
 
-## License
+## 📜 License
 
-All rights reserved. See [LICENSE](LICENSE). You may clone and run DevPulse on your own device for personal use. Modifying, redistributing, or publishing it requires written permission from the author.
+All rights reserved. You may clone and run DevPulse on your own device for personal use. Modifying, redistributing, or publishing it requires written permission from the author. See [LICENSE](LICENSE).
 
-Author: d-rathnayake
+---
+
+<p align="center">Made with care by <b>d-rathnayake</b></p>

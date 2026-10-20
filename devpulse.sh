@@ -2,75 +2,176 @@
 # DevPulse - terminal toolkit for Termux and Linux - by d-rathnayake
 set -u
 
-VERSION="1.1.0"
+VERSION="1.2.0"
 OWNER="d-rathnayake"
 API="https://api.github.com"
 PROFILE_URL="https://github.com/$OWNER"
 
+# ---------- colours (only when writing to a terminal) ----------
 if [ -t 1 ]; then
-  HI=$'\033[1;36m'; OK=$'\033[1;32m'; ERR=$'\033[1;31m'
-  DIM=$'\033[2m'; KEY=$'\033[1;35m'; OFF=$'\033[0m'
+  RST=$'\e[0m'; BOLD=$'\e[1m'; DIM=$'\e[2m'
+  CYAN=$'\e[38;5;51m'; VIOLET=$'\e[38;5;135m'; PINK=$'\e[38;5;213m'
+  GREEN=$'\e[38;5;84m'; AMBER=$'\e[38;5;220m'; RED=$'\e[38;5;203m'
+  GREY=$'\e[38;5;245m'; WHITE=$'\e[38;5;255m'
+  BG_V=$'\e[48;5;92m'; BG_C=$'\e[48;5;31m'; BG_G=$'\e[48;5;29m'
 else
-  HI=""; OK=""; ERR=""; DIM=""; KEY=""; OFF=""
+  RST=""; BOLD=""; DIM=""; CYAN=""; VIOLET=""; PINK=""; GREEN=""; AMBER=""; RED=""
+  GREY=""; WHITE=""; BG_V=""; BG_C=""; BG_G=""
 fi
 
+# ---------- layout: adapts to the phone width ----------
 COLS=$(tput cols 2>/dev/null || echo 80)
-W=$(( COLS >= 72 ? 68 : COLS - 4 ))
-[ "$W" -lt 30 ] && W=30
+W=$(( COLS - 2 ))
+if [ "$W" -gt 68 ]; then W=68; fi
+if [ "$W" -lt 28 ]; then W=28; fi
+NARROW=0
+if [ "$W" -lt 50 ]; then NARROW=1; fi
 
-# Use the GitHub CLI login if no token was given (higher API rate limit)
+# ---------- GitHub token: use the gh login when no token is set ----------
 if [ -z "${GITHUB_TOKEN:-}" ] && command -v gh >/dev/null 2>&1; then
   GITHUB_TOKEN=$(gh auth token 2>/dev/null || true)
   export GITHUB_TOKEN
 fi
 
-# ---------- drawing helpers (ASCII only) ----------
-line() { printf "  +%s+\n" "$(printf -- '-%.0s' $(seq 1 $((W-2))))"; }
-top() {
-  line
-  printf "  | %s%-*s%s |\n" "$HI" $((W-4)) "$1" "$OFF"
-  line
-}
-row() {
-  local lw=16 v="${2:-}" max
-  max=$((W-4-lw))
-  if [ "${#v}" -gt "$max" ]; then v="${v:0:$((max-3))}..."; fi
-  printf "  | %s%-*s%s%-*s |\n" "$DIM" "$lw" "$1" "$OFF" "$max" "$v"
-}
-info() { printf "  %s[ .. ]%s %s\n" "$HI" "$OFF" "$1"; }
-ok()   { printf "  %s[ OK ]%s %s\n" "$OK" "$OFF" "$1"; }
-fail() { printf "  %s[FAIL]%s %s\n" "$ERR" "$OFF" "$1"; }
-pause() { printf "\n  %sPress Enter to return to the menu%s " "$DIM" "$OFF"; read -r _ || true; }
-clr() { clear 2>/dev/null || printf '\033[2J\033[H'; }
-
-mkbar() {
-  local v="${1:-0}" m="${2:-1}" n="${3:-10}" f i out=""
-  v=$(tr -cd '0-9' <<<"$v"); m=$(tr -cd '0-9' <<<"$m")
-  [ -z "$v" ] && v=0
-  if [ -z "$m" ] || [ "$m" -eq 0 ]; then m=1; fi
-  f=$(( v * n / m ))
-  if [ "$f" -gt "$n" ]; then f=$n; fi
-  for ((i = 0; i < n; i++)); do
-    if [ "$i" -lt "$f" ]; then out+="#"; else out+="."; fi
+# ---------- text helpers ----------
+vlen() {
+  local s="$1" re=$'\e\\[[0-9;]*m'
+  while [[ $s =~ $re ]]; do
+    s=${s/"${BASH_REMATCH[0]}"/}
   done
-  printf "[%s]" "$out"
+  echo "${#s}"
+}
+
+trunc() {
+  local s="$1" max="$2"
+  if [ "${#s}" -gt "$max" ] && [ "$max" -gt 3 ]; then
+    s="${s:0:$((max-3))}..."
+  fi
+  echo "$s"
 }
 
 fmt() {
   local n
   n=$(tr -cd '0-9' <<<"${1:-}")
-  if [ -z "$n" ]; then printf -- "-"; return; fi
+  if [ -z "$n" ]; then echo "-"; return; fi
   sed ':a;s/\B[0-9]\{3\}\>/,&/;ta' <<<"$n"
+}
+
+badge() {
+  printf "%s%s%s %s %s" "$1" "$BOLD" "$WHITE" "$2" "$RST"
+}
+
+bar() {
+  local v="${1:-0}" m="${2:-1}" n="${3:-10}" c="${4:-$GREEN}" f i on="" off=""
+  v=$(tr -cd '0-9' <<<"$v"); m=$(tr -cd '0-9' <<<"$m")
+  if [ -z "$v" ]; then v=0; fi
+  if [ -z "$m" ] || [ "$m" -eq 0 ]; then m=1; fi
+  f=$(( v * n / m ))
+  if [ "$f" -gt "$n" ]; then f=$n; fi
+  for ((i = 0; i < f; i++)); do on+="█"; done
+  for ((i = f; i < n; i++)); do off+="░"; done
+  printf "%s%s%s%s%s" "$c" "$on" "$GREY" "$off" "$RST"
+}
+
+# colour for a score (higher is better)
+good_col() {
+  if [ "$1" -ge 70 ]; then echo "$GREEN"; elif [ "$1" -ge 40 ]; then echo "$AMBER"; else echo "$RED"; fi
+}
+# colour for a usage level (higher is worse)
+load_col() {
+  if [ "$1" -ge 85 ]; then echo "$RED"; elif [ "$1" -ge 60 ]; then echo "$AMBER"; else echo "$GREEN"; fi
+}
+
+# ---------- box drawing (fits the phone width) ----------
+hline() {
+  local dashes
+  dashes=$(printf -- '-%.0s' $(seq 1 $((W-2))))
+  printf "  %s+%s+%s\n" "$VIOLET" "$dashes" "$RST"
+}
+
+frow() {
+  local t="$1" vl pad
+  vl=$(vlen "$t")
+  pad=$(( W - 4 - vl ))
+  if [ "$pad" -lt 0 ]; then pad=0; fi
+  printf "  %s|%s %s%*s %s|%s\n" "$VIOLET" "$RST" "$t" "$pad" "" "$VIOLET" "$RST"
+}
+
+section() {
+  hline
+  frow "${BOLD}${CYAN}$(trunc "$1" $((W-8)))${RST}"
+  hline
+}
+
+kv() {
+  local label="$1" value="$2" lab max
+  if [ "$NARROW" -eq 1 ]; then
+    frow "${GREY}${label}${RST}"
+    frow "  ${value}"
+  else
+    lab=$(printf '%-12s' "$label")
+    frow "${GREY}${lab}${RST} ${value}"
+  fi
+}
+
+check() {
+  local name="$1" ok="$2" msg="$3"
+  if [ "$ok" -eq 1 ]; then
+    frow "$(badge "$BG_G" PASS) ${name}  ${GREY}${msg}${RST}"
+  else
+    frow "$(badge "$BG_V" WARN) ${name}  ${GREY}${msg}${RST}"
+  fi
+}
+
+info() { printf "  %s>>%s %s\n" "$CYAN" "$RST" "$1"; }
+fail() { printf "  %s!!%s %s\n" "$RED" "$RST" "$1"; }
+pause() { printf "\n  %sPress Enter to go back%s " "$DIM" "$RST"; read -r _ || true; }
+clr() { clear 2>/dev/null || printf '\e[2J\e[H'; }
+
+# ---------- big banner (block letters, colour gradient) ----------
+big_word() {
+  local word="$1" r i ch col k=0
+  local -a rows=("" "" "")
+  local -a pal=(51 45 39 33 99 135 171 213)
+  local -a g
+  for ((i = 0; i < ${#word}; i++)); do
+    ch="${word:i:1}"
+    case "$ch" in
+      D) g=(' ___ ' '|   \' '|___/') ;;
+      E) g=(' ___ ' '| __|' '|___|') ;;
+      V) g=('\   /' ' \ / ' '  V  ') ;;
+      P) g=(' ___ ' '| _ \' '| __/') ;;
+      U) g=('_   _' '| | |' '\___/') ;;
+      L) g=('_    ' '| |  ' '|_|__') ;;
+      S) g=(' ___ ' '/ __|' '\__ \') ;;
+      *) g=('     ' '     ' '     ') ;;
+    esac
+    col=""
+    if [ -n "$RST" ]; then col=$'\e[1;38;5;'"${pal[$(( k % ${#pal[@]} ))]}"'m'; fi
+    for r in 0 1 2; do
+      rows[r]+="${col}${g[r]} "
+    done
+    k=$(( k + 1 ))
+  done
+  for r in 0 1 2; do
+    printf "  %s%s\n" "${rows[r]}" "$RST"
+  done
 }
 
 header() {
   clr
-  top "DEVPULSE   v$VERSION   repo health and device toolkit"
-  printf "  %s%s%s\n" "$HI" '_/\_/\__/\_/\__/\_/\__/\_/\__/\_' "$OFF"
-  printf "  %sby %s%s\n\n" "$DIM" "$OWNER" "$OFF"
+  printf "\n"
+  if [ "$NARROW" -eq 1 ]; then
+    big_word DEV
+    big_word PULSE
+  else
+    big_word DEVPULSE
+  fi
+  printf "  %s_/\\_/\\__/\\_/\\__/\\_/\\__/\\_/\\__/\\_%s\n" "$VIOLET" "$RST"
+  printf "  %sversion %s   %sdev:%s %s%s%s\n\n" "$GREY" "$VERSION" "$GREY" "$RST" "$BOLD$PINK" "$OWNER" "$RST"
 }
 
-# ---------- data helpers ----------
+# ---------- GitHub data ----------
 net() {
   local args=(-fsS -m 12 -H "Accept: application/vnd.github+json" -H "User-Agent: devpulse")
   if [ -n "${GITHUB_TOKEN:-}" ]; then args+=(-H "Authorization: Bearer $GITHUB_TOKEN"); fi
@@ -83,178 +184,196 @@ jget() {
 }
 
 days_since() {
-  local t
+  local t now
   t=$(date -d "$1" +%s 2>/dev/null) || return 1
-  echo $(( ( $(date +%s) - t ) / 86400 ))
+  now=$(date +%s)
+  echo $(( (now - t) / 86400 ))
+}
+
+valid_repo() {
+  [[ "$1" =~ ^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$ ]]
+}
+
+top_repos_body() {
+  local repos pairs top1 s n
+  repos=$(net "$API/users/$OWNER/repos?per_page=100&sort=updated") || { fail "could not load repositories"; return; }
+  pairs=$(paste <(grep -o '"stargazers_count": *[0-9]*' <<<"$repos" | sed -E 's/.*: *//') \
+                <(grep -o '"full_name": *"[^"]*"' <<<"$repos" | sed -E 's/.*: *"//; s/"$//') \
+          | sort -k1,1nr | head -n 5)
+  if [ -z "$pairs" ]; then frow "${GREY}no repositories found${RST}"; return; fi
+  top1=$(head -n1 <<<"$pairs" | cut -f1)
+  while IFS=$'\t' read -r s n; do
+    frow "${BOLD}$(trunc "$n" $((W-8)))${RST}"
+    frow "  $(bar "$s" "$top1" $((W-22)) "$CYAN")  $(fmt "$s") stars"
+  done <<<"$pairs"
 }
 
 # ---------- features ----------
 cmd_profile() {
-  header; top "DEVELOPER PROFILE"
-  info "fetching profile"
-  local j
+  local j name login bio repos followers following created
+  header; section "DEVELOPER PROFILE"
+  info "loading profile"
   j=$(net "$API/users/$OWNER") || { fail "GitHub is not reachable right now"; pause; return; }
-  row "Name"         "$(echo "$j" | jget name)"
-  row "Login"        "$(echo "$j" | jget login)"
-  row "Bio"          "$(echo "$j" | jget bio)"
-  row "Public repos" "$(fmt "$(echo "$j" | jget public_repos)")"
-  row "Followers"    "$(fmt "$(echo "$j" | jget followers)")"
-  row "Following"    "$(fmt "$(echo "$j" | jget following)")"
-  row "Member since" "$(echo "$j" | jget created_at | cut -c1-10)"
-  row "Profile"      "$PROFILE_URL"
-  line
-  printf "\n"
-  cmd_top_repos_body
+  name=$(jget name <<<"$j"); login=$(jget login <<<"$j"); bio=$(jget bio <<<"$j")
+  repos=$(jget public_repos <<<"$j"); followers=$(jget followers <<<"$j")
+  following=$(jget following <<<"$j"); created=$(jget created_at <<<"$j" | cut -c1-10)
+  frow "${BOLD}${WHITE}${name:-$OWNER}${RST}"
+  frow "${PINK}@${login}${RST}"
+  if [ -n "$bio" ] && [ "$bio" != "null" ]; then frow "${GREY}$(trunc "$bio" $((W-6)))${RST}"; fi
+  hline
+  frow "$(badge "$BG_V" "$(fmt "$repos") repos") $(badge "$BG_C" "$(fmt "$followers") followers") $(badge "$BG_G" "$(fmt "$following") following")"
+  hline
+  kv "Joined" "${created:--}"
+  kv "Profile" "$PROFILE_URL"
+  section "TOP REPOSITORIES"
+  top_repos_body
   pause
 }
 
-cmd_top_repos_body() {
-  local repos pairs top1
-  repos=$(net "$API/users/$OWNER/repos?per_page=100&sort=updated") || { fail "could not load repos"; return; }
-  pairs=$(paste <(echo "$repos" | grep -o '"stargazers_count": *[0-9]*' | sed -E 's/.*: *//') \
-                <(echo "$repos" | grep -o '"full_name": *"[^"]*"' | sed -E 's/.*: *"//; s/"$//') \
-          | sort -k1,1nr | head -n 5)
-  top1=$(head -n1 <<<"$pairs" | cut -f1)
-  top "TOP REPOSITORIES BY STARS"
-  if [ -z "$pairs" ]; then row "Repos" "none found"; line; return; fi
-  while IFS=$'\t' read -r s n; do
-    row "$n" "$(fmt "$s") $(mkbar "$s" "$top1" 12)"
-  done <<<"$pairs"
-  line
-}
-
 cmd_scan() {
-  header; top "REPOSITORY HEALTH SCAN"
-  printf "  %sRepository (owner/name)%s\n  > " "$DIM" "$OFF"
-  local repo j
+  local repo j stars forks issues pushed archived lang lic desc branch days score grade col
+  header; section "REPOSITORY HEALTH SCAN"
+  printf "  %sowner/name%s\n  %s>%s " "$GREY" "$RST" "$PINK" "$RST"
   read -r repo || return
-  if ! [[ "$repo" =~ ^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$ ]]; then
-    fail "use the form owner/name, e.g. $OWNER/devpulse"; pause; return
-  fi
+  if ! valid_repo "$repo"; then fail "use the form owner/name, e.g. $OWNER/devpulse"; pause; return; fi
   info "scanning $repo"
   j=$(net "$API/repos/$repo") || { fail "repository not found, or it is private"; pause; return; }
 
-  local stars forks issues pushed archived lang lic desc branch days score
-  stars=$(echo "$j" | jget stargazers_count)
-  forks=$(echo "$j" | jget forks_count)
-  issues=$(echo "$j" | jget open_issues_count)
-  pushed=$(echo "$j" | jget pushed_at | cut -c1-10)
-  archived=$(echo "$j" | jget archived)
-  lang=$(echo "$j" | jget language)
-  desc=$(echo "$j" | jget description)
-  branch=$(echo "$j" | jget default_branch)
-  if grep -q '"license": *null' <<<"$j"; then lic="none"; else lic=$(echo "$j" | grep -o '"spdx_id": *"[^"]*"' | head -n1 | sed -E 's/.*: *"//; s/"$//'); fi
+  stars=$(jget stargazers_count <<<"$j"); forks=$(jget forks_count <<<"$j")
+  issues=$(jget open_issues_count <<<"$j"); pushed=$(jget pushed_at <<<"$j" | cut -c1-10)
+  archived=$(jget archived <<<"$j"); lang=$(jget language <<<"$j")
+  desc=$(jget description <<<"$j"); branch=$(jget default_branch <<<"$j")
+  if grep -q '"license": *null' <<<"$j"; then
+    lic="none"
+  else
+    lic=$(grep -o '"spdx_id": *"[^"]*"' <<<"$j" | head -n1 | sed -E 's/.*: *"//; s/"$//')
+  fi
   days=$(days_since "$pushed") || days=0
+  issues=$(tr -cd '0-9' <<<"$issues"); if [ -z "$issues" ]; then issues=0; fi
+  stars=$(tr -cd '0-9' <<<"$stars"); if [ -z "$stars" ]; then stars=0; fi
 
-  # Simple, transparent score (out of 100)
+  # Transparent score out of 100
   score=0
   if [ "$days" -le 30 ]; then score=$((score+40)); elif [ "$days" -le 180 ]; then score=$((score+20)); elif [ "$days" -le 365 ]; then score=$((score+10)); fi
   if [ "$archived" != "true" ]; then score=$((score+20)); fi
-  issues=$(tr -cd '0-9' <<<"$issues"); [ -z "$issues" ] && issues=0
   if [ "$issues" -le 10 ]; then score=$((score+20)); elif [ "$issues" -le 50 ]; then score=$((score+12)); elif [ "$issues" -le 200 ]; then score=$((score+5)); fi
   if [ -n "$desc" ] && [ "$desc" != "null" ]; then score=$((score+10)); fi
   if [ "$lic" != "none" ]; then score=$((score+10)); fi
 
+  if [ "$score" -ge 80 ]; then grade="A"; elif [ "$score" -ge 65 ]; then grade="B"; elif [ "$score" -ge 50 ]; then grade="C"; else grade="D"; fi
+  col=$(good_col "$score")
+
   printf "\n"
-  top "REPORT   $repo"
-  row "Health score" "$score / 100 $(mkbar "$score" 100 24)"
-  row "Stars"        "$(fmt "$stars")"
-  row "Forks"        "$(fmt "$forks")"
-  row "Open issues"  "$(fmt "$issues")"
-  row "Language"     "${lang:--}"
-  row "License"      "$lic"
-  row "Branch"       "${branch:--}"
-  row "Last push"    "$pushed ($days days ago)"
-  row "Archived"     "${archived:--}"
-  line
-  top "CHECKS"
-  if [ "$days" -le 30 ]; then row "Freshness" "PASS  pushed within 30 days"; else row "Freshness" "WARN  no push for $days days"; fi
-  if [ "$archived" != "true" ]; then row "Maintenance" "PASS  repository is active"; else row "Maintenance" "WARN  archived"; fi
-  if [ "$issues" -le 50 ]; then row "Issue load" "PASS  $issues open"; else row "Issue load" "WARN  $issues open"; fi
-  if [ "$lic" != "none" ]; then row "License" "PASS  $lic"; else row "License" "WARN  no license file"; fi
-  if [ -n "$desc" ] && [ "$desc" != "null" ]; then row "Description" "PASS  present"; else row "Description" "WARN  missing"; fi
-  line
+  section "REPORT  $repo"
+  frow "${BOLD}${col}${score}${RST}${GREY} / 100${RST}   $(bar "$score" 100 $((W-26)) "$col")  ${BOLD}${col}${grade}${RST}"
+  hline
+  kv "Stars"    "$(fmt "$stars")"
+  kv "Forks"    "$(fmt "$forks")"
+  kv "Issues"   "$(fmt "$issues") open"
+  kv "Language" "${lang:--}"
+  kv "License"  "$lic"
+  kv "Branch"   "${branch:--}"
+  kv "Last push" "$pushed  (${days}d ago)"
+  section "CHECKS"
+  if [ "$days" -le 30 ]; then check "Freshness" 1 "pushed ${days}d ago"; else check "Freshness" 0 "no push for ${days}d"; fi
+  if [ "$archived" != "true" ]; then check "Activity" 1 "not archived"; else check "Activity" 0 "archived"; fi
+  if [ "$issues" -le 50 ]; then check "Issues" 1 "$issues open"; else check "Issues" 0 "$issues open"; fi
+  if [ "$lic" != "none" ]; then check "License" 1 "$lic"; else check "License" 0 "missing"; fi
+  if [ -n "$desc" ] && [ "$desc" != "null" ]; then check "Docs" 1 "description set"; else check "Docs" 0 "no description"; fi
+  hline
   pause
 }
 
 cmd_commits() {
-  header; top "RECENT COMMITS"
-  printf "  %sRepository (owner/name)%s\n  > " "$DIM" "$OFF"
-  local repo j msgs n=0
+  local repo j msgs n=0 m
+  header; section "RECENT COMMITS"
+  printf "  %sowner/name%s\n  %s>%s " "$GREY" "$RST" "$PINK" "$RST"
   read -r repo || return
-  if ! [[ "$repo" =~ ^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$ ]]; then
-    fail "use the form owner/name"; pause; return
-  fi
+  if ! valid_repo "$repo"; then fail "use the form owner/name"; pause; return; fi
   info "loading commits"
   j=$(net "$API/repos/$repo/commits?per_page=8") || { fail "could not load commits"; pause; return; }
   msgs=$(grep -o '"message": *"[^"]*"' <<<"$j" | sed -E 's/^"message": *"//; s/"$//; s/\\n.*//' | head -n 8)
   printf "\n"
-  top "$repo"
   while IFS= read -r m; do
     n=$((n+1))
-    row "#$n" "$m"
+    frow "$(badge "$BG_C" "$n") $(trunc "$m" $((W-8)))"
   done <<<"$msgs"
-  line
+  hline
   pause
 }
 
 cmd_device() {
-  header; top "DEVICE REPORT"
-  local kernel arch cores memt memav used pct dsk dtot dused dav dpct batt
-  kernel="$(uname -sr)"; arch="$(uname -m)"; cores="$(nproc 2>/dev/null || echo 1)"
-  memt=$(awk '/MemTotal/{print $2}' /proc/meminfo 2>/dev/null); memav=$(awk '/MemAvailable/{print $2}' /proc/meminfo 2>/dev/null)
-  memt=${memt:-0}; memav=${memav:-0}
-  used=$(( (memt - memav) / 1024 ))
-  pct=0; [ "$memt" -gt 0 ] && pct=$(( (memt - memav) * 100 / memt ))
+  local cores ram_t ram_a ram_used ram_pct dsk d_tot d_used d_free d_pct batt status
+  header; section "SYSTEM"
+  cores=$(nproc 2>/dev/null || echo 1)
+  kv "Kernel" "$(uname -sr)"
+  kv "Arch" "$(uname -m)"
+  kv "CPU cores" "$cores"
+  kv "Shell" "bash ${BASH_VERSION%%(*}"
+  kv "Git" "$(git --version 2>/dev/null | awk '{print $3}')"
+
+  ram_t=$(awk '/MemTotal/{print $2}' /proc/meminfo 2>/dev/null); ram_t=${ram_t:-0}
+  ram_a=$(awk '/MemAvailable/{print $2}' /proc/meminfo 2>/dev/null); ram_a=${ram_a:-0}
+  ram_used=$(( (ram_t - ram_a) / 1024 ))
+  ram_pct=0
+  if [ "$ram_t" -gt 0 ]; then ram_pct=$(( (ram_t - ram_a) * 100 / ram_t )); fi
+  section "MEMORY"
+  kv "RAM used" "$(fmt "$ram_used") / $(fmt $(( ram_t / 1024 ))) MB"
+  frow "$(bar "$ram_pct" 100 $((W-12)) "$(load_col "$ram_pct")")  ${ram_pct}%"
+
   dsk=$(df -Pk "$HOME" 2>/dev/null | awk 'NR==2{print $2, $3, $4, $5}')
-  dtot=$(awk '{print $1}' <<<"$dsk"); dused=$(awk '{print $2}' <<<"$dsk"); dav=$(awk '{print $3}' <<<"$dsk"); dpct=$(awk '{print $4}' <<<"$dsk" | tr -d '%')
-  row "Kernel"  "$kernel"
-  row "Arch"    "$arch"
-  row "CPU cores" "$cores"
-  row "Shell"   "bash ${BASH_VERSION%%(*}"
-  row "Git"     "$(git --version 2>/dev/null | awk '{print $3}')"
-  line
-  top "MEMORY"
-  row "RAM used" "$(fmt $((used))) MB  $(mkbar "$pct" 100 20) $pct%"
-  line
-  top "STORAGE  (HOME)"
-  row "Total"   "$(fmt $(( ${dtot:-0} / 1024 ))) MB"
-  row "Used"    "$(fmt $(( ${dused:-0} / 1024 ))) MB  $(mkbar "${dpct:-0}" 100 20) ${dpct:-0}%"
-  row "Free"    "$(fmt $(( ${dav:-0} / 1024 ))) MB"
-  line
+  d_tot=$(awk '{print $1}' <<<"$dsk"); d_used=$(awk '{print $2}' <<<"$dsk")
+  d_free=$(awk '{print $3}' <<<"$dsk"); d_pct=$(awk '{print $4}' <<<"$dsk" | tr -d '%')
+  d_tot=${d_tot:-0}; d_used=${d_used:-0}; d_free=${d_free:-0}; d_pct=${d_pct:-0}
+  section "STORAGE  (HOME)"
+  kv "Total" "$(fmt $(( d_tot / 1024 ))) MB"
+  kv "Free" "$(fmt $(( d_free / 1024 ))) MB"
+  frow "$(bar "$d_pct" 100 $((W-12)) "$(load_col "$d_pct")")  ${d_pct}%"
+
   if command -v termux-battery-status >/dev/null 2>&1; then
     batt=$(termux-battery-status 2>/dev/null | grep -o '"percentage": *[0-9]*' | sed -E 's/.*: *//')
-    top "POWER"
-    row "Battery" "${batt:-unknown}%  $(mkbar "${batt:-0}" 100 20)"
-    line
+    status=$(termux-battery-status 2>/dev/null | grep -o '"status": *"[^"]*"' | sed -E 's/.*: *"//; s/"$//')
+    batt=${batt:-0}
+    section "POWER"
+    kv "Status" "${status:-unknown}"
+    frow "$(bar "$batt" 100 $((W-12)) "$(good_col "$batt")")  ${batt}%"
   fi
+  hline
   pause
 }
 
 cmd_link() {
-  header; top "PROFILE LINK"
-  row "GitHub" "$PROFILE_URL"
-  line
+  header; section "PROFILE LINK"
+  kv "GitHub" "$PROFILE_URL"
+  hline
+  pause
+}
+
+cmd_top() {
+  header; section "TOP REPOSITORIES"
+  top_repos_body
+  hline
   pause
 }
 
 menu() {
   header
-  top "MENU"
-  row "[1]" "Developer profile overview"
-  row "[2]" "Repository health scan"
-  row "[3]" "Top repositories"
-  row "[4]" "Recent commits"
-  row "[5]" "Device report"
-  row "[6]" "Profile link"
-  row "[0]" "Exit"
-  line
-  printf "  %s>%s " "$KEY" "$OFF"
+  printf "  %s 1 %s  Developer profile\n" "$BG_V$BOLD$WHITE" "$RST"
+  printf "  %s 2 %s  Repository health scan\n" "$BG_C$BOLD$WHITE" "$RST"
+  printf "  %s 3 %s  Top repositories\n" "$BG_G$BOLD$WHITE" "$RST"
+  printf "  %s 4 %s  Recent commits\n" "$BG_V$BOLD$WHITE" "$RST"
+  printf "  %s 5 %s  Device report\n" "$BG_C$BOLD$WHITE" "$RST"
+  printf "  %s 6 %s  Profile link\n" "$BG_G$BOLD$WHITE" "$RST"
+  printf "  %s 0 %s  Exit\n" "$GREY$BOLD" "$RST"
+  printf "\n  %s>%s " "$PINK$BOLD" "$RST"
 }
 
 trap 'printf "\n"; exit 0' INT TERM
 
-if [ "${1:-}" = "--version" ]; then echo "devpulse $VERSION"; exit 0; fi
+if [ "${1:-}" = "--version" ]; then
+  echo "devpulse $VERSION"
+  exit 0
+fi
 
 while true; do
   menu
@@ -262,11 +381,11 @@ while true; do
   case "$choice" in
     1) cmd_profile ;;
     2) cmd_scan ;;
-    3) header; cmd_top_repos_body; pause ;;
+    3) cmd_top ;;
     4) cmd_commits ;;
     5) cmd_device ;;
     6) cmd_link ;;
-    0|q|Q) printf "  Bye.\n"; exit 0 ;;
+    0|q|Q) printf "  %sGoodbye.%s\n" "$PINK" "$RST"; exit 0 ;;
     *) ;;
   esac
 done
