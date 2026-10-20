@@ -13,10 +13,10 @@ if [ -t 1 ]; then
   CYAN=$'\e[38;5;51m'; VIOLET=$'\e[38;5;135m'; PINK=$'\e[38;5;213m'
   GREEN=$'\e[38;5;84m'; AMBER=$'\e[38;5;220m'; RED=$'\e[38;5;203m'
   GREY=$'\e[38;5;245m'; WHITE=$'\e[38;5;255m'
-  BG_V=$'\e[48;5;92m'; BG_C=$'\e[48;5;31m'; BG_G=$'\e[48;5;29m'
+  BG_V=$'\e[48;5;92m'; BG_G=$'\e[48;5;29m'
 else
   RST=""; BOLD=""; DIM=""; CYAN=""; VIOLET=""; PINK=""; GREEN=""; AMBER=""; RED=""
-  GREY=""; WHITE=""; BG_V=""; BG_C=""; BG_G=""
+  GREY=""; WHITE=""; BG_V=""; BG_G=""
 fi
 
 # ---------- layout: measured from the terminal on every draw (auto-scales) ----------
