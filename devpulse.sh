@@ -68,6 +68,14 @@ fmt() {
   sed ':a;s/\B[0-9]\{3\}\>/,&/;ta' <<<"$n"
 }
 
+c256() {
+  if [ -n "$RST" ]; then printf '\e[1;38;5;%sm' "$1"; fi
+}
+
+stat() {
+  printf "%s%s%s %s%s%s" "$WHITE" "$BOLD" "$1" "$RST" "$GREY" "$2$RST"
+}
+
 plural() {
   if [ "$1" = "1" ]; then echo "$2"; else echo "$3"; fi
 }
@@ -138,24 +146,24 @@ section() {
 }
 
 menu_item() {
-  local n="$1" bg="$2" name="$3" hint="$4"
+  local n="$1" code="$2" name="$3" hint="$4"
   if [ "$NARROW" -eq 1 ]; then
-    frow "$(badge "$bg" "$n") ${BOLD}${name}${RST}"
+    frow "${WHITE}${BOLD}[${n}]${RST} $(c256 "$code")${BOLD}${name}${RST}"
   else
-    frow "$(badge "$bg" "$n") ${BOLD}${name}${RST}  ${GREY}${hint}${RST}"
+    frow "${WHITE}${BOLD}[${n}]${RST} $(c256 "$code")${BOLD}${name}${RST}  ${GREY}${hint}${RST}"
   fi
 }
 
 menu() {
   home_header
   section "MENU"
-  menu_item 1 "$BG_V" "Developer profile" "profile and top repos"
-  menu_item 2 "$BG_C" "Repository health scan" "score out of 100"
-  menu_item 3 "$BG_G" "Top repositories" "ranked by stars"
-  menu_item 4 "$BG_V" "Recent commits" "latest changes"
-  menu_item 5 "$BG_C" "Device report" "system and storage"
-  menu_item 6 "$BG_G" "Profile link" "open on GitHub"
-  menu_item 0 "$GREY" "Exit" "close DevPulse"
+  menu_item 1 51  "Developer profile"       "profile and top repos"
+  menu_item 2 213 "Repository health scan"  "score out of 100"
+  menu_item 3 220 "Top repositories"        "ranked by stars"
+  menu_item 4 84  "Recent commits"          "latest changes"
+  menu_item 5 141 "Device report"           "system and storage"
+  menu_item 6 39  "Profile link"            "open on GitHub"
+  menu_item 0 245 "Exit"                    "close DevPulse"
   bottom
   printf "\n  %s>%s " "$PINK$BOLD" "$RST"
 }
@@ -200,6 +208,7 @@ glyph() {
     U) GLYPH=('██╗   ██╗' '██║   ██║' '██║   ██║' '██║   ██║' '╚██████╔╝' ' ╚═════╝ ') ;;
     L) GLYPH=('██╗     ' '██║     ' '██║     ' '██║     ' '███████╗' '╚══════╝') ;;
     S) GLYPH=('███████╗' '██╔════╝' '███████╗' '╚════██║' '███████║' '╚══════╝') ;;
+    1) GLYPH=(' ██╗ ' '███║ ' '╚██║ ' ' ██║ ' ' ██║ ' ' ╚═╝ ') ;;
     *) GLYPH=('        ' '        ' '        ' '        ' '        ' '        ') ;;
   esac
 }
@@ -237,7 +246,7 @@ word_rows() {
 frame_row() {
   local t="$1" vl pad left right
   vl=$(vlen "$t")
-  pad=$(( 50 - vl ))
+  pad=$(( W - 2 - vl ))
   if [ "$pad" -lt 0 ]; then pad=0; fi
   left=$(( pad / 2 ))
   right=$(( pad - left ))
@@ -247,7 +256,7 @@ frame_row() {
 banner_frame() {
   local pulse deco
   deco=$(rule '*-~' 40)
-  printf "  %s.%s.%s\n" "$VIOLET" "$(rule '-~=~' 50)" "$RST"
+  printf "  %s.%s.%s\n" "$VIOLET" "$(rule '-~=~' $((W-2)))" "$RST"
   frame_row ""
   frame_row "${GREY}${deco}"
   word_rows DEV 0
@@ -256,12 +265,14 @@ banner_frame() {
   word_rows PULSE 3
   for r in 0 1 2 3 4 5; do frame_row "${ART[r]}"; done
   frame_row ""
+  word_rows V1 6
+  for r in 0 1 2 3 4 5; do frame_row "${ART[r]}"; done
+  frame_row ""
   pulse="_/\\_/\\__/\\_/\\__/\\_/\\__/\\_/\\__/\\_/\\__"
   frame_row "${VIOLET}${pulse}"
-  frame_row "${BOLD}${WHITE}V1${RST}  ${GREY}~${RST}  ${GREY}dev:${RST} ${BOLD}${PINK}${OWNER}"
-  frame_row "${GREY}[ repo health * devices * profile ]${RST}"
+  frame_row "${GREY}dev:${RST} ${BOLD}${PINK}${OWNER}${RST}  ${GREY}~  repo health  ~  devices${RST}"
   frame_row "${GREY}${deco}"
-  printf "  %s'%s'%s\n" "$PINK" "$(rule '-~=~' 50)" "$RST"
+  printf "  %s'%s'%s\n" "$PINK" "$(rule '-~=~' $((W-2)))" "$RST"
 }
 
 # compact one-line brand for small screens and sub-pages
@@ -341,7 +352,7 @@ cmd_profile() {
   frow "${PINK}@${login}${RST}"
   if [ -n "$bio" ] && [ "$bio" != "null" ]; then frow "${GREY}$(trunc "$bio" $((W-6)))${RST}"; fi
   hline
-  frow "$(badge "$BG_V" "$(fmt "$repos") repos") $(badge "$BG_C" "$(fmt "$followers") $(plural "$followers" follower followers)") $(badge "$BG_G" "$(fmt "$following") $(plural "$following" following following)")"
+  frow "$(stat "$(fmt "$repos")" "$(plural "$repos" repo repos)")   $(stat "$(fmt "$followers")" "$(plural "$followers" follower followers)")   $(stat "$(fmt "$following")" following)"
   hline
   kv "Joined" "${created:--}"
   kv "Profile" "$PROFILE_URL"
@@ -416,7 +427,7 @@ cmd_commits() {
   printf "\n"
   while IFS= read -r m; do
     n=$((n+1))
-    frow "$(badge "$BG_C" "$n") $(trunc "$m" $((W-8)))"
+    frow "${WHITE}${BOLD}$(printf '%02d' "$n")${RST}  $(trunc "$m" $((W-8)))"
   done <<<"$msgs"
   hline
   pause
