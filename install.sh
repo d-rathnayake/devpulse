@@ -1,82 +1,55 @@
 #!/usr/bin/env bash
-# DevPulse installer · by d-rathnayake
-set -euo pipefail
-
-R=$'\033[1;31m'; G=$'\033[1;32m'; Y=$'\033[1;33m'; B=$'\033[1;34m'
-M=$'\033[1;35m'; C=$'\033[1;36m'; W=$'\033[1;37m'; D=$'\033[2m'; N=$'\033[0m'
+# DevPulse installer - by d-rathnayake
+set -eu
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BIN="${PREFIX:-$HOME/.local}/bin"
+TOTAL=4
+STEP=0
 
-step() { printf "  %s[*]%s %s\n" "$B" "$N" "$1"; }
-ok()   { printf "  %s[✔]%s %s\n" "$G" "$N" "$1"; }
-warn() { printf "  %s[!]%s %s\n" "$Y" "$N" "$1"; }
+if [ -t 1 ]; then
+  HI=$'\033[1;36m'; OK=$'\033[1;32m'; WARN=$'\033[1;33m'; DIM=$'\033[2m'; OFF=$'\033[0m'
+else
+  HI=""; OK=""; WARN=""; DIM=""; OFF=""
+fi
 
-banner() {
-  clear 2>/dev/null || true
-  printf "%s" "$M"
-  cat <<'EOF'
-  ____             ____        _
- |  _ \  _____   _|  _ \ _   _| |___  ___
- | | | |/ _ \ \ / / |_) | | | | / __|/ _ \
- | |_| |  __/\ V /|  __/| |_| | \__ \  __/
- |____/ \___| \_/ |_|    \__,_|_|___/\___|
-EOF
-  printf "%s" "$N"
-  printf "  %s◆%s %sDevPulse%s %sv1.0.0%s   %s✦ by d-rathnayake%s\n" "$C" "$N" "$W" "$N" "$D" "$N" "$Y" "$N"
-  printf "  %s────────────────────────────────────────────%s\n\n" "$D" "$N"
-}
+step() { STEP=$((STEP+1)); printf "  %s[%d/%d]%s %s" "$HI" "$STEP" "$TOTAL" "$OFF" "$1"; }
+done_ok() { printf " %s[ OK ]%s\n" "$OK" "$OFF"; }
+done_warn() { printf " %s[WARN]%s %s\n" "$WARN" "$OFF" "$1"; }
 
-install_deps() {
-  step "Checking dependencies (git, curl)"
-  local need=()
-  for dep in git curl; do
-    command -v "$dep" >/dev/null 2>&1 || need+=("$dep")
-  done
-  if [ ${#need[@]} -eq 0 ]; then
-    ok "Already installed"
-    return
-  fi
+printf "\n  %sDEVPULSE INSTALLER%s  v1.1.0\n" "$HI" "$OFF"
+printf "  %s------------------------------------------------%s\n\n" "$DIM" "$OFF"
+
+step "Checking required tools (git, curl)"
+need=()
+for dep in git curl; do
+  if ! command -v "$dep" >/dev/null 2>&1; then need+=("$dep"); fi
+done
+if [ ${#need[@]} -eq 0 ]; then
+  done_ok
+else
+  printf "\n"
   if command -v pkg >/dev/null 2>&1; then
-    pkg install -y "${need[@]}" >/dev/null
+    step "Installing: ${need[*]}"; pkg install -y "${need[@]}" >/dev/null 2>&1 && done_ok || done_warn "install manually"
   elif command -v apt-get >/dev/null 2>&1; then
-    sudo apt-get install -y "${need[@]}" >/dev/null
+    step "Installing: ${need[*]}"; sudo apt-get install -y "${need[@]}" >/dev/null 2>&1 && done_ok || done_warn "install manually"
   else
-    warn "Install manually: ${need[*]}"
-    return
+    done_warn "missing: ${need[*]}"
   fi
-  ok "Installed: ${need[*]}"
-}
+fi
 
-link_tool() {
-  step "Linking 'devpulse' command"
-  mkdir -p "$BIN"
-  chmod +x "$ROOT/devpulse.sh"
-  ln -sf "$ROOT/devpulse.sh" "$BIN/devpulse"
-  case ":$PATH:" in
-    *":$BIN:"*) ;;
-    *) warn "PATH එකට add කරන්න: export PATH=\"$BIN:\$PATH\"" ;;
-  esac
-  ok "Run anywhere with: devpulse"
-}
+step "Linking the devpulse command"
+mkdir -p "$BIN"
+chmod +x "$ROOT/devpulse.sh"
+ln -sf "$ROOT/devpulse.sh" "$BIN/devpulse"
+done_ok
 
-open_page() {
-  if command -v termux-open-url >/dev/null 2>&1; then
-    step "Opening banner page in your browser"
-    if termux-open-url "file://$ROOT/assets/banner.svg"; then
-      ok "Page opened"
-    else
-      warn "Browser open කරන්න බැරි වුණා"
-    fi
-  else
-    warn "termux-open-url නැහැ, banner: $ROOT/assets/banner.svg"
-  fi
-}
+step "Verifying the install"
+if "$ROOT/devpulse.sh" --version >/dev/null 2>&1; then done_ok; else done_warn "run: bash $ROOT/devpulse.sh"; fi
 
-banner
-install_deps
-link_tool
-open_page
-printf "\n  %s✦ Setup complete!%s DevPulse launch වෙනවා...\n" "$G" "$N"
-sleep 1
-exec "$ROOT/devpulse.sh"
+printf "\n  %sSetup complete.%s Run it with:  devpulse\n" "$OK" "$OFF"
+case ":$PATH:" in
+  *":$BIN:"*) ;;
+  *) printf "  %sAdd this to ~/.bashrc:%s  export PATH=\"%s:\$PATH\"\n" "$WARN" "$OFF" "$BIN" ;;
+esac
+printf "\n"

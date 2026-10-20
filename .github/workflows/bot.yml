@@ -1,4 +1,4 @@
-name: DevPulse Bot
+name: DevPulse CI
 
 on:
   push:
@@ -35,5 +35,5 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.issue.number,
-              body: "👋 Thanks for opening an issue! **DevPulse** bot here. d-rathnayake will review it soon. ✦"
+              body: "Thanks for opening an issue. The DevPulse maintainer will review it soon."
             });
