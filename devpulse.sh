@@ -50,7 +50,7 @@ vlen() {
   while [[ $s =~ $re ]]; do
     s=${s/"${BASH_REMATCH[0]}"/}
   done
-  echo "${#s}"
+  printf '%s' "$s" | LC_ALL=C tr -d '\200-\277' | LC_ALL=C wc -c | tr -d ' '
 }
 
 trunc() {
@@ -99,9 +99,7 @@ load_col() {
 
 # ---------- box drawing (fits the phone width) ----------
 hline() {
-  local dashes
-  dashes=$(printf -- '-%.0s' $(seq 1 $((W-2))))
-  printf "  %s+%s+%s\n" "$VIOLET" "$dashes" "$RST"
+  printf "  %s╠%s╣%s\n" "$VIOLET" "$(rep $((W-2)) '═')" "$RST"
 }
 
 frow() {
@@ -109,14 +107,59 @@ frow() {
   vl=$(vlen "$t")
   pad=$(( W - 4 - vl ))
   if [ "$pad" -lt 0 ]; then pad=0; fi
-  printf "  %s|%s %s%*s %s|%s\n" "$VIOLET" "$RST" "$t" "$pad" "" "$VIOLET" "$RST"
+  printf "  %s║%s %s%*s %s║%s\n" "$VIOLET" "$RST" "$t" "$pad" "" "$VIOLET" "$RST"
 }
 
-section() {
-  hline
-  frow "${BOLD}${CYAN}$(trunc "$1" $((W-8)))${RST}"
-  hline
+bottom() {
+  printf "  %s╚%s╝%s\n" "$VIOLET" "$(rep $((W-2)) '═')" "$RST"
 }
+
+# section TITLE -> double-line title box with an icon, sized to the screen
+section() {
+  local t="$1" icon="+" inner label vl pad left right
+  inner=$(( W - 2 ))
+  case "$t" in
+    "DEVELOPER PROFILE") icon="@" ;;
+    "RECENT COMMITS") icon=">" ;;
+    "TOP REPOSITORIES") icon="*" ;;
+    "DEVICE REPORT"|"SYSTEM"|"MEMORY"|"STORAGE  (HOME)"|"POWER") icon="#" ;;
+    "PROFILE LINK") icon="~" ;;
+    "MENU") icon="=" ;;
+  esac
+  label=" $icon  $(trunc "$t" $(( inner - 8 ))) "
+  vl=${#label}
+  pad=$(( inner - vl ))
+  if [ "$pad" -lt 0 ]; then pad=0; fi
+  left=$(( pad / 2 ))
+  right=$(( pad - left ))
+  printf "  %s╔%s╗%s\n" "$VIOLET" "$(rep "$inner" '═')" "$RST"
+  printf "  %s║%s%*s%s%s%s%s%*s%s║%s\n" "$VIOLET" "$RST" "$left" "" "$BOLD" "$CYAN" "$label" "$RST" "$right" "" "$VIOLET" "$RST"
+  printf "  %s╠%s╣%s\n" "$VIOLET" "$(rep "$inner" '═')" "$RST"
+}
+
+menu_item() {
+  local n="$1" bg="$2" name="$3" hint="$4"
+  if [ "$NARROW" -eq 1 ]; then
+    frow "$(badge "$bg" "$n") ${BOLD}${name}${RST}"
+  else
+    frow "$(badge "$bg" "$n") ${BOLD}${name}${RST}  ${GREY}${hint}${RST}"
+  fi
+}
+
+menu() {
+  home_header
+  section "MENU"
+  menu_item 1 "$BG_V" "Developer profile" "profile and top repos"
+  menu_item 2 "$BG_C" "Repository health scan" "score out of 100"
+  menu_item 3 "$BG_G" "Top repositories" "ranked by stars"
+  menu_item 4 "$BG_V" "Recent commits" "latest changes"
+  menu_item 5 "$BG_C" "Device report" "system and storage"
+  menu_item 6 "$BG_G" "Profile link" "open on GitHub"
+  menu_item 0 "$GREY" "Exit" "close DevPulse"
+  bottom
+  printf "\n  %s>%s " "$PINK$BOLD" "$RST"
+}
+
 
 kv() {
   local label="$1" value="$2" lab max
@@ -140,10 +183,14 @@ check() {
 
 info() { printf "  %s>>%s %s\n" "$CYAN" "$RST" "$1"; }
 fail() { printf "  %s!!%s %s\n" "$RED" "$RST" "$1"; }
-pause() { printf "\n  %sPress Enter to go back%s " "$DIM" "$RST"; read -r _ || true; }
+pause() {
+  bottom
+  printf "\n  %sPress Enter to go back%s " "$DIM" "$RST"
+  read -r _ || true
+}
 clr() { clear 2>/dev/null || printf '\e[2J\e[H'; }
 
-# ---------- banner: block letters with a colour gradient ----------
+# ---------- banner: framed block letters with a colour gradient ----------
 glyph() {
   case "$1" in
     D) GLYPH=('██████╗ ' '██╔══██╗' '██║  ██║' '██║  ██║' '██████╔╝' '╚═════╝ ') ;;
@@ -157,36 +204,81 @@ glyph() {
   esac
 }
 
-word_art() {
-  local word="$1" r i col k=0
+# rep N CHAR -> prints CHAR N times
+rep() {
+  local n="$1" ch="$2" out="" i
+  for ((i = 0; i < n; i++)); do out+="$ch"; done
+  printf "%s" "$out"
+}
+
+# word_rows WORD START_INDEX -> fills ART[0..5] with coloured block letters
+word_rows() {
+  local word="$1" k="${2:-0}" r i col
   local -a pal=(51 45 39 75 111 141 177 213)
-  local -a rows=("" "" "" "" "" "")
+  ART=("" "" "" "" "" "")
   for ((i = 0; i < ${#word}; i++)); do
     glyph "${word:i:1}"
     col=""
-    if [ -n "$RST" ]; then col=$'\e[1;38;5;'"${pal[$(( k % ${#pal[@]} ))]}"'m'; fi
+    if [ -n "$RST" ]; then col=$'\e[1;38;5;'"${pal[$(( (k + i) % ${#pal[@]} ))]}"'m'; fi
     for r in 0 1 2 3 4 5; do
-      rows[r]+="${col}${GLYPH[r]} "
+      ART[r]+="${col}${GLYPH[r]} "
     done
-    k=$(( k + 1 ))
-  done
-  for r in 0 1 2 3 4 5; do
-    printf "  %s%s\n" "${rows[r]}" "$RST"
   done
 }
 
+# frame_row TEXT -> one centred row inside the 50-column banner frame
+frame_row() {
+  local t="$1" vl pad left right
+  vl=$(vlen "$t")
+  pad=$(( 50 - vl ))
+  if [ "$pad" -lt 0 ]; then pad=0; fi
+  left=$(( pad / 2 ))
+  right=$(( pad - left ))
+  printf "  %s║%s%*s%s%*s%s║%s\n" "$VIOLET" "$RST" "$left" "" "$t$RST" "$right" "" "$VIOLET" "$RST"
+}
+
+banner_frame() {
+  local pulse
+  printf "  %s╔%s╗%s\n" "$VIOLET" "$(rep 50 '═')" "$RST"
+  frame_row ""
+  word_rows DEV 0
+  for r in 0 1 2 3 4 5; do frame_row "${ART[r]}"; done
+  frame_row ""
+  word_rows PULSE 3
+  for r in 0 1 2 3 4 5; do frame_row "${ART[r]}"; done
+  frame_row ""
+  pulse="_/\\_/\\__/\\_/\\__/\\_/\\__/\\_/\\__/\\_/\\__"
+  frame_row "${VIOLET}${pulse}"
+  frame_row "${BOLD}${WHITE}V1${RST}  ${GREY}|${RST}  ${GREY}dev:${RST} ${BOLD}${PINK}${OWNER}"
+  frame_row "${GREY}[ repo health * devices * profile ]${RST}"
+  printf "  %s╚%s╝%s\n" "$VIOLET" "$(rep 50 '═')" "$RST"
+}
+
+# compact one-line brand for small screens and sub-pages
+brand_line() {
+  printf "\n  %s%sDEV%s%s%sPULSE%s  %s%sV1%s\n" "$BOLD" "$CYAN" "$RST" "$BOLD" "$PINK" "$RST" "$BOLD" "$WHITE" "$RST"
+  printf "  %s%s%s\n" "$VIOLET" "$(rep $((W-2)) '=')" "$RST"
+  printf "  %sdev:%s %s%s%s\n\n" "$GREY" "$RST" "$BOLD$PINK" "$OWNER" "$RST"
+}
+
+# header for sub-pages
 header() {
+  refresh_layout
+  clr
+  brand_line
+}
+
+# home screen: the full framed banner on large screens
+home_header() {
   refresh_layout
   clr
   printf "\n"
   if [ "$BIG" -eq 1 ]; then
-    word_art DEV
-    word_art PULSE
+    banner_frame
+    printf "\n"
   else
-    printf "  %s%sDEV%s%s%sPULSE%s\n" "$BOLD" "$CYAN" "$RST" "$BOLD" "$PINK" "$RST"
+    brand_line
   fi
-  printf "  %s_/\\_/\\__/\\_/\\__/\\_/\\__/\\_/\\__/\\_/\\__/\\_%s\n" "$VIOLET" "$RST"
-  printf "  %s%sV1%s  %s|%s  %sdev:%s %s%s%s\n\n" "$BOLD" "$WHITE" "$RST" "$GREY" "$RST" "$GREY" "$RST" "$BOLD$PINK" "$OWNER" "$RST"
 }
 
 # ---------- GitHub data ----------
@@ -374,17 +466,6 @@ cmd_top() {
   pause
 }
 
-menu() {
-  header
-  printf "  %s 1 %s  Developer profile\n" "$BG_V$BOLD$WHITE" "$RST"
-  printf "  %s 2 %s  Repository health scan\n" "$BG_C$BOLD$WHITE" "$RST"
-  printf "  %s 3 %s  Top repositories\n" "$BG_G$BOLD$WHITE" "$RST"
-  printf "  %s 4 %s  Recent commits\n" "$BG_V$BOLD$WHITE" "$RST"
-  printf "  %s 5 %s  Device report\n" "$BG_C$BOLD$WHITE" "$RST"
-  printf "  %s 6 %s  Profile link\n" "$BG_G$BOLD$WHITE" "$RST"
-  printf "  %s 0 %s  Exit\n" "$GREY$BOLD" "$RST"
-  printf "\n  %s>%s " "$PINK$BOLD" "$RST"
-}
 
 trap 'printf "\n"; exit 0' INT TERM
 
